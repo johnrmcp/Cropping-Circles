@@ -1,0 +1,87 @@
+import os
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
+
+"""
+TO DO:
+-(DONE)how to size a pdf to 8.5x11
+-(DONE)get images to fit on pdf
+-(DONE)change background to white
+-change image location to offset grid
+-pulling links from a csv
+-pulling images from a link
+-rewriting image paths to accept this
+-parse csv into 28 link blocks to create multiple pages
+-test with less than 28 links
+"""
+
+def crop_to_circle(image, target_size):
+    channels = 4
+    height, width, channels = image.shape
+
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2RGBA)
+
+    center_x, center_y = width // 2, height // 2
+    radius = min(width, height) // 2
+    
+    mask = np.zeros(image.shape[:2], dtype=np.uint8)
+    cv2.circle(mask, (center_x, center_y), radius, 255, -1)
+
+    cropped_image = cv2.bitwise_and(image, image, mask=mask)
+   
+    side_length = min(cropped_image.shape[:2])
+    start_x = (cropped_image.shape[1] - side_length) // 2
+    start_y = (cropped_image.shape[0] - side_length) // 2
+    cropped_image = cropped_image[start_y:start_y + side_length, start_x:start_x + side_length]
+
+    resized_image = cv2.resize(cropped_image, target_size, interpolation=cv2.INTER_AREA)
+
+    return resized_image
+
+def arrange_grid(images, rows, cols, width, height):
+    channels = 4
+
+    grid = np.zeros((rows * height, cols * width, channels), dtype=np.uint8)
+
+    for row in range(rows):
+        for col in range(cols):
+            index = row * cols + col
+            if index < len(images):
+                grid[row * height:(row + 1) * height, col * width:(col + 1) * width] = images[index]
+
+    return grid
+
+def create_pdf(grid, output_path, width, height):
+    
+    temp_image_path = "temp.png"  # Replace with a more descriptive name if needed
+    cv2.imwrite(temp_image_path, grid)  # Save the grid as a temporary image
+    
+    pagesize = [8.5*inch,11*inch]
+    pdf = canvas.Canvas(output_path, pagesize = pagesize)
+    pdf.setFillColor("white")
+    pdf.drawImage(temp_image_path, 0, 0, width=pagesize[0], height=pagesize[1], mask = "auto")      #second and third arguments can be used to offset
+    pdf.save()
+
+    # Clean up the temporary image (optional)
+    #os.remove(temp_image_path)  # Uncomment this line to remove the temporary file
+
+def main():
+    rows = 7
+    cols = 4
+    target_size = (500, 500)
+    
+    image_directory = r"c:\Users\papay\OneDrive\Desktop\Pictures\AlbumCovers"
+    image_filenames = os.listdir(image_directory)
+    image_paths = [os.path.join(image_directory,image_filename) for image_filename in image_filenames]
+
+    images = [cv2.imread(path) for path in image_paths]
+    cropped_images = [crop_to_circle(image, target_size) for image in images]
+    grid = arrange_grid(cropped_images, rows, cols, target_size[0], target_size[1])
+
+    create_pdf(grid, r"c:\Users\papay\OneDrive\Desktop\Pictures\output.pdf", target_size[0], target_size[1]) #currently receives resized width and height to create pdf size
+
+if __name__ == "__main__":
+    main()
