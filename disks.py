@@ -1,3 +1,4 @@
+import math
 import os
 import cv2
 import numpy as np
@@ -41,27 +42,34 @@ def crop_to_circle(image, target_size):
 
     return resized_image
 
-def arrange_grid(images, rows, cols, width, height):
+def arrange_grid(images, ph, pw, img_width, img_height, pic_rows, pic_cols, border, offset):
     channels = 4
+    grid = np.zeros((ph, pw, channels), dtype=np.uint8)
 
-    grid = np.zeros((rows * height, cols * width, channels), dtype=np.uint8)
-
-    for row in range(rows):
-        for col in range(cols):
-            index = row * cols + col
+    for row in range(pic_rows):
+        for col in range(pic_cols):
+            index = row * pic_cols + col
             if index < len(images):
-                grid[row * height:(row + 1) * height, col * width:(col + 1) * width] = images[index]
+                if (row+1)%2 == 0:
+                    grid[(row * offset)+border:(row * offset)+img_height+border, (col * img_width)+border+int(img_width/2):((col + 1) * img_width)+border+int(img_width/2)] = images[index]
+                    #cv2.imwrite("test.png", grid)
+                    print("even")
+                else:
+                    grid[(row * offset)+border:(row * offset)+img_height+border, (col * img_width)+border:((col + 1) * img_width)+border] = images[index]
+                    #cv2.imwrite("test.png", grid)
+                    print("odd")
+                    
 
     return grid
 
-def create_pdf(grid, output_path, width, height):
+def create_pdf(grid, output_path, pw_inch, ph_inch):
     
     temp_image_path = "temp.png"  # Replace with a more descriptive name if needed
     cv2.imwrite(temp_image_path, grid)  # Save the grid as a temporary image
     
-    pagesize = [8.5*inch,11*inch]
+    pagesize = [pw_inch*inch,ph_inch*inch]
     pdf = canvas.Canvas(output_path, pagesize = pagesize)
-    pdf.setFillColor("white")
+    #pdf.setFillColor("white")
     pdf.drawImage(temp_image_path, 0, 0, width=pagesize[0], height=pagesize[1], mask = "auto")      #second and third arguments can be used to offset
     pdf.save()
 
@@ -69,9 +77,21 @@ def create_pdf(grid, output_path, width, height):
     #os.remove(temp_image_path)  # Uncomment this line to remove the temporary file
 
 def main():
-    rows = 7
-    cols = 4
-    target_size = (500, 500)
+    pic_rows = 7
+    pic_cols = 4
+    
+    ppi = 300
+    pw_inch = 8.5
+    ph_inch = 11
+    diameter_inch = 1.7233
+    border_inch = 0.1333
+    pw = int(pw_inch*ppi)
+    ph = int(ph_inch*ppi)
+    diameter= int(diameter_inch*ppi)
+    border= int(border_inch*ppi)
+    offset= int((diameter/2)*math.sqrt(3))
+
+    target_size = (diameter, diameter)
     
     image_directory = r"c:\Users\papay\OneDrive\Desktop\Pictures\AlbumCovers"
     image_filenames = os.listdir(image_directory)
@@ -79,9 +99,9 @@ def main():
 
     images = [cv2.imread(path) for path in image_paths]
     cropped_images = [crop_to_circle(image, target_size) for image in images]
-    grid = arrange_grid(cropped_images, rows, cols, target_size[0], target_size[1])
+    grid = arrange_grid(cropped_images, ph, pw, target_size[0], target_size[1], pic_rows, pic_cols, border, offset)
 
-    create_pdf(grid, r"c:\Users\papay\OneDrive\Desktop\Pictures\output.pdf", target_size[0], target_size[1]) #currently receives resized width and height to create pdf size
+    create_pdf(grid, r"c:\Users\papay\OneDrive\Desktop\Pictures\output.pdf", pw_inch, ph_inch) #currently receives resized width and height to create pdf size
 
 if __name__ == "__main__":
     main()
