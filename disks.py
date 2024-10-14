@@ -1,5 +1,8 @@
+import csv
 import math
 import os
+import requests
+from PIL import Image
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,6 +23,31 @@ TO DO:
 
 Current state: 
 """
+
+def import_csv(filepath, columns):
+    image_paths = []
+    i=0
+    rowcount = 0
+    with open(filepath, newline='') as unfulfilled_csv:
+        unfulfilled_csv = csv.reader(unfulfilled_csv, delimiter=',', quotechar='|')
+
+        for row in unfulfilled_csv:
+            if "http" in row[columns[0]]:
+                response = requests.get(row[columns[0]])
+                if response.status_code == 200:
+                    with open(str(i)+".png", "wb") as f:
+                        f.write(response.content)
+                    print("Image downloaded successfully!")
+                    image_paths.append(str(i)+".png")
+                else:
+                    print("Failed to download image. Status code:", response.status_code)
+            i+=1
+
+            #image_directory = r"c:\Users\papay\OneDrive\Desktop\Pictures\AlbumCovers"
+            #image_filenames = os.listdir(image_directory)
+            #image_paths = [os.path.join(image_directory,image_filename) for image_filename in image_filenames]
+
+    return image_paths
 
 def crop_to_circle(image, target_size):
     channels = 4
@@ -69,10 +97,10 @@ def create_pdf(grid, output_path, pw_inch, ph_inch):
 
 
 def main():
+        #dimensions,generally representing page specifications
     pic_rows = 6
     pic_cols = 4
-    
-    ppi = 300
+    ppi = 300   #should be modular without changing the overall dimensions, the ET-2800 has a print resolution of 5447x1440 dpi
     pw_inch = 8.5
     ph_inch = 11
     diameter_inch = 1.7233
@@ -85,12 +113,10 @@ def main():
     border= int(border_inch*ppi)
     spacing_vert= int(spacing_vert_inch*ppi)
     spacing_hor= int(spacing_hor_inch*ppi)
-
     target_size = (diameter, diameter)
-    
-    image_directory = r"c:\Users\papay\OneDrive\Desktop\Pictures\AlbumCovers"
-    image_filenames = os.listdir(image_directory)
-    image_paths = [os.path.join(image_directory,image_filename) for image_filename in image_filenames]
+    csv_data_columns = [14, 15]
+
+    image_paths = import_csv(r"C:\Users\papay\OneDrive\Documents\SHOPIFY_ORDERS\UNFULFILLED\unfulfilled_orders.csv", csv_data_columns)
 
     images = [cv2.imread(path) for path in image_paths]
     cropped_images = [crop_to_circle(image, target_size) for image in images]
