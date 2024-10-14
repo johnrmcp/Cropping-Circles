@@ -15,19 +15,21 @@ TO DO:
 -(DONE)get images to fit on pdf
 -(DONE)change background to white
 -(DONE W PROBLEM IN OFFSET BRANCH)change image location to offset grid
--pulling links from a csv
--pulling images from a link
--rewriting image paths to accept this
--parse csv into 28 link blocks to create multiple pages
--test with less than 28 links
+-(DONE)pulling links from a csv
+-(DONE)pulling images from a link
+-(DONE)rewriting image paths to accept this
+-(DONE)parse csv into 28 link blocks to create multiple pages
+-(DONE)test with less than 28 links
 
 Current state: 
+    Successfully reads in, crops, places, and exports >24 images into a rectangular grid on an 8.5x11 sheet
 """
 
 def import_csv(filepath, columns):
     image_paths = []
     i=0
-    rowcount = 0
+    over24 = False
+
     with open(filepath, newline='') as unfulfilled_csv:
         unfulfilled_csv = csv.reader(unfulfilled_csv, delimiter=',', quotechar='|')
 
@@ -41,13 +43,15 @@ def import_csv(filepath, columns):
                     image_paths.append(str(i)+".png")
                 else:
                     print("Failed to download image. Status code:", response.status_code)
-            i+=1
+            i+=1    #skips first and last row, so i 'starts' at 1
+            if i==25:
+                over24 = True
 
             #image_directory = r"c:\Users\papay\OneDrive\Desktop\Pictures\AlbumCovers"
             #image_filenames = os.listdir(image_directory)
             #image_paths = [os.path.join(image_directory,image_filename) for image_filename in image_filenames]
 
-    return image_paths
+    return image_paths, over24
 
 def crop_to_circle(image, target_size):
     channels = 4
@@ -97,7 +101,7 @@ def create_pdf(grid, output_path, pw_inch, ph_inch):
 
 
 def main():
-        #dimensions,generally representing page specifications
+        #dimensions, generally representing page specifications
     pic_rows = 6
     pic_cols = 4
     ppi = 300   #should be modular without changing the overall dimensions, the ET-2800 has a print resolution of 5447x1440 dpi
@@ -116,13 +120,24 @@ def main():
     target_size = (diameter, diameter)
     csv_data_columns = [14, 15]
 
-    image_paths = import_csv(r"C:\Users\papay\OneDrive\Documents\SHOPIFY_ORDERS\UNFULFILLED\unfulfilled_orders.csv", csv_data_columns)
 
-    images = [cv2.imread(path) for path in image_paths]
-    cropped_images = [crop_to_circle(image, target_size) for image in images]
-    grid = arrange_grid(cropped_images, ph, pw, target_size[0], target_size[1], pic_rows, pic_cols, border, spacing_vert, spacing_hor)
+    image_paths, over24 = import_csv(r"C:\Users\papay\OneDrive\Documents\SHOPIFY_ORDERS\UNFULFILLED\unfulfilled_orders.csv", csv_data_columns)
+    if not over24:
+        images = [cv2.imread(path) for path in image_paths]
+        cropped_images = [crop_to_circle(image, target_size) for image in images]
+        grid = arrange_grid(cropped_images, ph, pw, target_size[0], target_size[1], pic_rows, pic_cols, border, spacing_vert, spacing_hor)
+        create_pdf(grid, r"c:\Users\papay\OneDrive\Desktop\Pictures\output.pdf", pw_inch, ph_inch)
+    else:
+        images = [cv2.imread(path) for path in image_paths]
+        cropped_images = [crop_to_circle(image, target_size) for image in images]
+        grid = arrange_grid(cropped_images, ph, pw, target_size[0], target_size[1], pic_rows, pic_cols, border, spacing_vert, spacing_hor)
+        create_pdf(grid, r"c:\Users\papay\OneDrive\Desktop\Pictures\output.pdf", pw_inch, ph_inch)
 
-    create_pdf(grid, r"c:\Users\papay\OneDrive\Desktop\Pictures\output.pdf", pw_inch, ph_inch)
+        image_paths = image_paths[24:]
+        images = [cv2.imread(path) for path in image_paths]
+        cropped_images = [crop_to_circle(image, target_size) for image in images]
+        grid = arrange_grid(cropped_images, ph, pw, target_size[0], target_size[1], pic_rows, pic_cols, border, spacing_vert, spacing_hor)
+        create_pdf(grid, r"c:\Users\papay\OneDrive\Desktop\Pictures\output2.pdf", pw_inch, ph_inch)
 
 if __name__ == "__main__":
     main()
